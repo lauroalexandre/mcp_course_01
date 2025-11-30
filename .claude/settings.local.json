@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python main.py:*)",
+      "Bash(python test_gemini.py:*)",
+      "Bash(python list_models.py:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
