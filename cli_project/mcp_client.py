@@ -42,30 +42,48 @@ class MCPClient:
         return self._session
 
     async def list_tools(self) -> list[types.Tool]:
-        # TODO: Return a list of tools defined by the MCP server
-        return []
+        """Return a list of tools defined by the MCP server"""
+        response = await self.session().list_tools()
+        return response.tools
 
     async def call_tool(
         self, tool_name: str, tool_input: dict
     ) -> types.CallToolResult | None:
-        # TODO: Call a particular tool and return the result
-        return None
+        """Call a particular tool and return the result"""
+        response = await self.session().call_tool(tool_name, arguments=tool_input)
+        return response
 
     async def list_prompts(self) -> list[types.Prompt]:
-        # TODO: Return a list of prompts defined by the MCP server
-        return []
+        """Return a list of prompts defined by the MCP server"""
+        response = await self.session().list_prompts()
+        return response.prompts
 
     async def get_prompt(self, prompt_name, args: dict[str, str]):
-        # TODO: Get a particular prompt defined by the MCP server
-        return []
+        """Get a particular prompt defined by the MCP server"""
+        response = await self.session().get_prompt(prompt_name, arguments=args)
+        return response.messages
 
     async def read_resource(self, uri: str) -> Any:
-        # TODO: Read a resource, parse the contents and return it
-        return []
+        """Read a resource, parse the contents and return it"""
+        response = await self.session().read_resource(uri)
+        # Return the text content of the first resource
+        if response.contents:
+            first_content = response.contents[0]
+            if hasattr(first_content, 'text'):
+                return first_content.text
+        return None
 
     async def cleanup(self):
-        await self._exit_stack.aclose()
-        self._session = None
+        """Clean up resources properly to avoid Windows pipe warnings"""
+        try:
+            await self._exit_stack.aclose()
+        except Exception:
+            pass  # Ignore errors during cleanup
+        finally:
+            self._session = None
+            # Give time for Windows to clean up pipes
+            if sys.platform == "win32":
+                await asyncio.sleep(0.1)
 
     async def __aenter__(self):
         await self.connect()
@@ -82,10 +100,21 @@ async def main():
         command="uv",
         args=["run", "mcp_server.py"],
     ) as _client:
-        pass
+        result = await _client.list_tools()
+        print("Tools:")
+        for tool in result:
+            print(f"- {tool.name}: {tool.description}")
 
 
 if __name__ == "__main__":
     if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-    asyncio.run(main())
+
+    # Run and properly close event loop to avoid warnings
+    try:
+        asyncio.run(main())
+    finally:
+        # Clean up any remaining tasks on Windows
+        if sys.platform == "win32":
+            import time
+            time.sleep(0.2)  # Give Windows time to clean up pipes

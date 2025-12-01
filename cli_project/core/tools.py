@@ -1,8 +1,14 @@
 import json
-from typing import Optional, Literal, List
+from typing import Optional, Literal, List, Dict, Any, TypedDict
 from mcp.types import CallToolResult, Tool, TextContent
 from mcp_client import MCPClient
-from anthropic.types import Message, ToolResultBlockParam
+
+
+class ToolResultBlockParam(TypedDict):
+    tool_use_id: str
+    type: str
+    content: str
+    is_error: bool
 
 
 class ToolManager:
@@ -51,17 +57,24 @@ class ToolManager:
 
     @classmethod
     async def execute_tool_requests(
-        cls, clients: dict[str, MCPClient], message: Message
+        cls, clients: dict[str, MCPClient], message: Any
     ) -> List[ToolResultBlockParam]:
         """Executes a list of tool requests against the provided clients."""
-        tool_requests = [
-            block for block in message.content if block.type == "tool_use"
-        ]
+        # Extract tool requests from message content
+        tool_requests = []
+        if hasattr(message, 'content'):
+            content = message.content if isinstance(message.content, list) else [message.content]
+            tool_requests = [
+                block for block in content
+                if isinstance(block, dict) and block.get("type") == "tool_use"
+                or hasattr(block, 'type') and block.type == "tool_use"
+            ]
         tool_result_blocks: list[ToolResultBlockParam] = []
         for tool_request in tool_requests:
-            tool_use_id = tool_request.id
-            tool_name = tool_request.name
-            tool_input = tool_request.input
+            # Handle both dict and object formats
+            tool_use_id = tool_request.get("id") if isinstance(tool_request, dict) else tool_request.id
+            tool_name = tool_request.get("name") if isinstance(tool_request, dict) else tool_request.name
+            tool_input = tool_request.get("input") if isinstance(tool_request, dict) else tool_request.input
 
             client = await cls._find_client_with_tool(
                 list(clients.values()), tool_name

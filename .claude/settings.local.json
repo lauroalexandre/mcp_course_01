@@ -3,7 +3,11 @@
     "allow": [
       "Bash(python main.py:*)",
       "Bash(python test_gemini.py:*)",
-      "Bash(python list_models.py:*)"
+      "Bash(python list_models.py:*)",
+      "Bash(uv run:*)",
+      "Bash(python:*)",
+      "Bash(mcp dev:*)",
+      "Bash(timeout 5 uv run:*)"
     ],
     "deny": [],
     "ask": []
