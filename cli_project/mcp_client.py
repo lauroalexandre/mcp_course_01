@@ -1,10 +1,11 @@
+import json
 import sys
 import asyncio
 from typing import Optional, Any
 from contextlib import AsyncExitStack
 from mcp import ClientSession, StdioServerParameters, types
 from mcp.client.stdio import stdio_client
-
+from pydantic import AnyUrl
 
 class MCPClient:
     def __init__(
@@ -54,24 +55,22 @@ class MCPClient:
         return response
 
     async def list_prompts(self) -> list[types.Prompt]:
-        """Return a list of prompts defined by the MCP server"""
-        response = await self.session().list_prompts()
-        return response.prompts
+        result = await self.session().list_prompts()
+        return result.prompts
 
     async def get_prompt(self, prompt_name, args: dict[str, str]):
-        """Get a particular prompt defined by the MCP server"""
-        response = await self.session().get_prompt(prompt_name, arguments=args)
-        return response.messages
+        result = await self.session().get_prompt(prompt_name, args)
+        return result.messages
 
     async def read_resource(self, uri: str) -> Any:
-        """Read a resource, parse the contents and return it"""
-        response = await self.session().read_resource(uri)
-        # Return the text content of the first resource
-        if response.contents:
-            first_content = response.contents[0]
-            if hasattr(first_content, 'text'):
-                return first_content.text
-        return None
+        result = await self.session().read_resource(AnyUrl(uri))
+        resource = result.contents[0]
+
+        if isinstance(resource, types.TextResourceContents):
+            if resource.mimeType == "application/json":
+                return json.loads(resource.text)
+
+            return resource.text
 
     async def cleanup(self):
         """Clean up resources properly to avoid Windows pipe warnings"""

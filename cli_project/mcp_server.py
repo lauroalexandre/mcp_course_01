@@ -1,5 +1,6 @@
 from mcp.server.fastmcp import FastMCP
 from pydantic import Field
+from mcp.server.fastmcp.prompts import base
 
 mcp = FastMCP("DocumentMCP", log_level="ERROR")
 
@@ -40,13 +41,13 @@ def edit_document(
 
 
 # Resources
-@mcp.resource("docs://documents")
+@mcp.resource("docs://documents", mime_type="application/json")
 def list_document_ids() -> str:
     """Returns a list of all available document IDs"""
     return list(docs.keys())
 
 
-@mcp.resource("docs://documents/{doc_id}")
+@mcp.resource("docs://documents/{doc_id}",mime_type="text/plain")
 def get_document_content(doc_id: str) -> str:
     """Returns the content of a specific document"""
     if doc_id not in docs:
@@ -56,20 +57,25 @@ def get_document_content(doc_id: str) -> str:
 
 # Prompts
 @mcp.prompt(
-    name="rewrite_markdown",
-    description="Rewrites a document in markdown format",
+    name="format",
+    description="Rewrites the contents of the document in Markdown format.",
 )
-def rewrite_in_markdown(doc_id: str = Field(description="The ID of the document to rewrite")) -> list:
-    """Prompt to rewrite a document in markdown format"""
-    if doc_id not in docs:
-        raise ValueError(f"Doc with id {doc_id} not found.")
+def format_document(
+    doc_id: str = Field(description="Id of the document to format"),
+) -> list[base.Message]:
+    prompt = f"""
+    Your goal is to reformat a document to be written with markdown syntax.
 
-    return [
-        {
-            "role": "user",
-            "content": f"Please rewrite the following document in proper markdown format:\n\n{docs[doc_id]}"
-        }
-    ]
+    The id of the document you need to reformat is:
+    <document_id>
+    {doc_id}
+    </document_id>
+
+    Add in headers, bullet points, tables, etc as necessary. Feel free to add in extra text, but don't change the meaning of the report.
+    Use the 'edit_document' tool to edit the document. After the document has been edited, respond with the final version of the doc. Don't explain your changes.
+    """
+
+    return [base.UserMessage(prompt)]
 
 
 @mcp.prompt(
